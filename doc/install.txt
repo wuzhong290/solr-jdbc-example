@@ -1,0 +1,38 @@
+一、安装Jdk
+需要1.8及其更高
+下载jdk http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
+scp jdk-8u40-linux-x64.rpm  root@192.168.120.129:/home/wuzhong/jdk-8u40-linux-x64.rpm
+chmod +x jdk-8u40-linux-x64.rpm
+rpm -ivh jdk-8u40-linux-x64.rpm
+安装路径为/usr/java/jdk1.8.0_40
+
+二、安装solr
+1、下载：http://mirror.bit.edu.cn/apache/lucene/solr/6.1.0/solr-6.1.0.tgz
+2、scp solr-6.1.0.tgz  root@192.168.120.128:/home/wuzhong/solr-6.1.0.tgz
+3、tar xzf solr-6.1.0.tgz solr-6.1.0/bin/install_solr_service.sh --strip-components=2
+4、./install_solr_service.sh solr-6.1.0.tgz -i /opt -d /var/solr1 -u solr1 -s solr1 -p 8986
+5、/etc/default/solr.in.sh修改
+    SOLR_JAVA_MEM="-Xms1g -Xmx1g"
+    -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/dump
+
+    ZK_HOST=127.0.0.1:2181/solr1（SolrCloud需要配置）
+    chmod +x /opt/solr1/server/scripts/cloud-scripts/zkcli.sh
+    /opt/solr1/server/scripts/cloud-scripts/zkcli.sh -zkhost 127.0.0.1:2181 -cmd makepath /solr1
+    /opt/solr1/server/scripts/cloud-scripts/zkcli.sh -zkhost 127.0.0.1:2181 -cmd list
+
+    SOLR_OPTS="$SOLR_OPTS -Xss256k"下面增加（实现Running Solr on HDFS）：
+    SOLR_OPTS="$SOLR_OPTS -Dsolr.directoryFactory=HdfsDirectoryFactory \
+    -Dsolr.lock.type=hdfs \
+    -Dsolr.hdfs.home=hdfs://master.spark.com:8020/solr1 \
+    -Dsolr.hdfs.confdir=/var/run/cloudera-scm-agent/process/101-solr-SOLR_SERVER/hadoop-conf"
+
+    将/var/run/cloudera-scm-agent/process/100-solr-SOLR_SERVER（cdh5.7集成solr是具有次目录）复制为101-solr-SOLR_SERVER，
+    chown -R  solr1:solr1  101-solr-SOLR_SERVER
+6、创建core
+./solr create -c mycollection1 -shards 2 -replicationFactor 2
+
+将/var/solr1/data的文件复制到/var/solr1/data1，并修改core.properties中的coreNodeName=core_node4
+./solr restart -c -p 8987 -z master.spark.com:2181/solr1 -s /var/solr1/data1
+
+
+
